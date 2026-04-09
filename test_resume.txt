@@ -1,0 +1,5 @@
+Name: Sowmiya Sivashankar
+Experience: 2 years Angular Developer
+Skills: Angular, Python, Node.js, MongoDB
+Projects: HRMS Web App, Job Portal
+Education: B.Sc Computer Science
