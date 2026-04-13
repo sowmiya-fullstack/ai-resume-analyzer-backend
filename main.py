@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 import os
@@ -26,26 +26,45 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
         return file_bytes.decode("utf-8", errors="ignore")
 
 @app.post("/analyze")
-async def analyze_resume(file: UploadFile = File(...)):
-    if not (file.filename.endswith(".pdf") or file.filename.endswith(".txt")):
-        raise HTTPException(status_code=400, detail="Only PDF and TXT files allowed")
-    
+async def analyze_resume(
+    file: UploadFile = File(...),
+    job_description: str = Form("")
+):
     content = await file.read()
-    
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File size must be less than 5MB")
-    
     text = extract_text(content, file.filename)
-    
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Could not extract text from file")
-    
+
+    if job_description.strip():
+        prompt = f"""Review this resume and compare it with the job description.
+        
+Resume:
+{text}
+
+Job Description:
+{job_description}
+
+Give feedback with these sections:
+1. Overall Impression
+2. Strengths
+3. Areas to Improve
+4. JD Match Score (out of 100) with explanation
+5. Top 3 Recommendations to improve match"""
+    else:
+        prompt = f"""Review this resume and give structured feedback:
+1. Overall Impression
+2. Strengths  
+3. Areas to Improve
+4. ATS Score (out of 100)
+5. Top 3 Recommendations
+
+Resume:
+{text}"""
+
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": "You are a professional resume reviewer. Give structured feedback with these sections: 1) Overall Impression 2) Strengths 3) Areas to Improve 4) ATS Score (out of 100) 5) Top 3 Recommendations"},
-            {"role": "user", "content": f"Review this resume:\n\n{text}"}
+            {"role": "system", "content": "You are a professional resume reviewer and career coach."},
+            {"role": "user", "content": prompt}
         ]
     )
-    
+
     return {"feedback": response.choices[0].message.content}
